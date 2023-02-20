@@ -1,0 +1,72 @@
+import json
+from dotenv import load_dotenv
+import base64
+import os
+from requests import post, get
+
+load_dotenv()
+
+# Grab the ID and Secret from my Spotify Dashboard in a file called env
+clientId = os.getenv("CLIENT_ID")
+clientSecret = os.getenv("CLIENT_SECRET")
+
+def getToken():
+    # Grab token using a few function calls then use the token to search 
+    # spotify's api
+    auth_string = clientId + ":" + clientSecret
+    auth_bytes = auth_string.encode("utf-8")
+    auth_base64 = str(base64.b64encode(auth_bytes), "utf-8")
+
+    url = "https://accounts.spotify.com/api/token"
+    
+    headers = {
+        "Authorization": "Basic " + auth_base64,
+        "Content-Type": "application/x-www-form-urlencoded"
+
+    }
+
+    data = {"grant_type": "client_credentials"}
+    result = post(url, headers=headers, data=data)
+    jsonResult = json.loads(result.content)
+    token = jsonResult["access_token"]
+    
+    return token
+
+
+def getAuthHeader(token):
+    # helper function
+    return {"Authorization": "Bearer " + token}
+
+def artistSearch(token, artistName):
+    # With the API token and given a name search for an artist and return their result
+    # using a few json calls
+    url = "https://api.spotify.com/v1/search"
+    headers = getAuthHeader(token)
+    query = f"?q={artistName}&type=artist&limit=1"
+
+    query_url = url + query
+    result = get(query_url, header=headers)
+    jsonResult = json.loads(result.content)["arists"]["items"]
+    
+    if len(jsonResult) == 0:
+        print("Error no artists with this name")
+        return None
+    
+    return jsonResult[0]
+
+def getSongs(token, artist_id):
+    # get the top 10 songs in terms of popularity 
+    url = "https://api.spotify.com/v1/artists/{artist_id}/top-tracks?country=US"
+    headers = getAuthHeader(token)
+    result = get(url,headers=headers)
+    jsonResult=json.loads(result.content)["tracks"]["items"]
+    return jsonResult
+
+
+if __name__ == "__main__":
+  token = getToken()
+  result = artistSearch(token, "Bryce Vine")
+  artist_id = result["id"]
+  song = getSongs(token,artist_id)
+  for idx,song in enumerate(song):
+      print(f"{idx+1}, {song['name']}")
